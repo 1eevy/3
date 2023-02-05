@@ -8,10 +8,10 @@ import (
 )
 
 func init() {
-	DeclFunc("ext_make3dgrains", Voronoi3d, "3D Voronoi tesselation over shape (grain size, starting region number, num regions, shape, seed)")
+	DeclFunc("ext_make3dgrains", Voronoi3d, "3D Voronoi tesselation over shape (grain size, shellthickness, gbthickness, starting region number, num regions, shape, seed)")
 }
 
-func Voronoi3d(grainsize float64, startRegion int, numRegions int, inputShape Shape, seed int) {
+func Voronoi3d(grainsize float64, shellthickness float64, gbthickness float64, startRegion int, numRegions int, inputShape Shape, seed int) {
 	Refer("Lel2014")
 	SetBusy(true)
 	defer SetBusy(false)
@@ -125,15 +125,21 @@ func (t *tesselation3d) tabulateCells() []cellLocs {
 func (t *tesselation3d) RegionOf(x, y, z float64) int {
 	if t.shape(x, y, z) {
 		nearest := center3d{x, y, z, 0}
-		mindist := math.Inf(1)
+		mindist1 := math.Inf(1)
+		mindist2 := math.Inf(1)
 		for _, c := range t.centers {
-			dist := sqr(x-c.x) + sqr(y-c.y) + sqr(z-c.z)
-			if dist < mindist {
+			dist := sqrt(sqr(x-c.x) + sqr(y-c.y) + sqr(z-c.z))
+			if dist < mindist1 {
 				nearest = c
-				mindist = dist
+				mindist2 = mindist1
+				mindist1 = dist
+			} else if dist < mindist2 {
+				mindist2 = dist
 			}
 		}
-		return int(nearest.region)
+		sindex := math.Floor(math.Cos(math.Floor((mindist2-mindist1)/(2*shellthickness+gbthickness))))
+		bindex := math.Floor(math.Cos(math.Floor((mindist2-mindist1)/gbthickness)))
+		return int(nearest.region+(sindex+bindex)*numRegions)
 	} else {
 		return -1 //When the regions are rendered, any region < 0 will not be rastered.
 	}
